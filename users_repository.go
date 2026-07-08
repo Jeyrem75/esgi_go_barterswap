@@ -39,3 +39,39 @@ func updateUserRow(ctx context.Context, db *sql.DB, u User) error {
 		u.Pseudo, u.Bio, u.Ville, u.ID)
 	return err
 }
+
+func replaceSkillsRows(ctx context.Context, db *sql.DB, userID int, skills []Skill) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM skills WHERE user_id = $1`, userID); err != nil {
+		return err
+	}
+	for _, s := range skills {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO skills (user_id, nom, niveau) VALUES ($1, $2, $3)`,
+			userID, s.Nom, s.Niveau); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func selectSkills(ctx context.Context, db *sql.DB, userID int) ([]Skill, error) {
+	rows, err := db.QueryContext(ctx, `SELECT nom, niveau FROM skills WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var skills []Skill
+	for rows.Next() {
+		var s Skill
+		if err := rows.Scan(&s.Nom, &s.Niveau); err != nil {
+			return nil, err
+		}
+		skills = append(skills, s)
+	}
+	return skills, rows.Err()
+}

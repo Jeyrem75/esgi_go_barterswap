@@ -34,6 +34,22 @@ func updateUser(ctx context.Context, db *sql.DB, u User) (*User, error) {
 	return selectUser(ctx, db, u.ID)
 }
 
+func validateSkills(skills []Skill) error {
+	for _, s := range skills {
+		if !NiveauxValides[s.Niveau] {
+			return fmt.Errorf("niveau invalide %q: %w", s.Niveau, ErrValidation)
+		}
+	}
+	return nil
+}
+
+func replaceUserSkills(ctx context.Context, db *sql.DB, userID int, skills []Skill) error {
+	if err := validateSkills(skills); err != nil {
+		return err
+	}
+	return replaceSkillsRows(ctx, db, userID, skills)
+}
+
 func createUserHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var u User
@@ -92,8 +108,51 @@ func updateUserHandler(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func getUserSkillsHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			writeError(w, fmt.Errorf("id invalide: %w", ErrValidation))
+			return
+		}
+		skills, err := selectSkills(r.Context(), db, id)
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+		if skills == nil {
+			skills = []Skill{}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(skills)
+	}
+}
+
+func putUserSkillsHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			writeError(w, fmt.Errorf("id invalide: %w", ErrValidation))
+			return
+		}
+		var skills []Skill
+		if err := json.NewDecoder(r.Body).Decode(&skills); err != nil {
+			writeError(w, fmt.Errorf("corps JSON invalide: %w", ErrValidation))
+			return
+		}
+		if err := replaceUserSkills(r.Context(), db, id, skills); err != nil {
+			writeError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(skills)
+	}
+}
+
 // RegisterUserRoutes enregistre les routes utilisateurs, compétences et évaluations.
 func RegisterUserRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("GET /api/users/{id}", getUserHandler(db))
 	mux.HandleFunc("PUT /api/users/{id}", updateUserHandler(db))
+	mux.HandleFunc("GET /api/users/{id}/skills", getUserSkillsHandler(db))
+	mux.HandleFunc("PUT /api/users/{id}/skills", putUserSkillsHandler(db))
 }
