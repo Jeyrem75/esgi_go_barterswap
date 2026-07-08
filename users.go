@@ -155,4 +155,7 @@ func RegisterUserRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("PUT /api/users/{id}", updateUserHandler(db))
 	mux.HandleFunc("GET /api/users/{id}/skills", getUserSkillsHandler(db))
 	mux.HandleFunc("PUT /api/users/{id}/skills", putUserSkillsHandler(db))
+	mux.HandleFunc("GET /api/users/{id}/reviews", getUserReviewsHandler(db))
+	mux.HandleFunc("GET /api/services/{id}/reviews", getServiceReviewsHandler(db))
+	mux.HandleFunc("POST /api/exchanges/{id}/review", createReviewHandler(db))
 }
