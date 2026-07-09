@@ -92,6 +92,15 @@ func updateUserHandler(db *sql.DB) http.HandlerFunc {
 			writeError(w, fmt.Errorf("id invalide: %w", ErrValidation))
 			return
 		}
+		authorID, ok := GetUserIDFromContext(r.Context())
+		if !ok {
+			writeError(w, fmt.Errorf("utilisateur non authentifié: %w", ErrUnauthorized))
+			return
+		}
+		if authorID != id {
+			writeError(w, fmt.Errorf("modification du profil d'un autre utilisateur interdite: %w", ErrUnauthorized))
+			return
+		}
 		var u User
 		if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
 			writeError(w, fmt.Errorf("corps JSON invalide: %w", ErrValidation))
@@ -133,6 +142,15 @@ func putUserSkillsHandler(db *sql.DB) http.HandlerFunc {
 		id, err := strconv.Atoi(r.PathValue("id"))
 		if err != nil {
 			writeError(w, fmt.Errorf("id invalide: %w", ErrValidation))
+			return
+		}
+		authorID, ok := GetUserIDFromContext(r.Context())
+		if !ok {
+			writeError(w, fmt.Errorf("utilisateur non authentifié: %w", ErrUnauthorized))
+			return
+		}
+		if authorID != id {
+			writeError(w, fmt.Errorf("modification des compétences d'un autre utilisateur interdite: %w", ErrUnauthorized))
 			return
 		}
 		var skills []Skill

@@ -20,9 +20,20 @@ func validateReview(status string, note int) error {
 }
 
 func createReview(ctx context.Context, db *sql.DB, r Review) (*Review, error) {
-	status, err := fetchExchangeStatus(ctx, db, r.ExchangeID)
+	requesterID, ownerID, status, err := selectExchangeParties(ctx, db, r.ExchangeID)
 	if err != nil {
 		return nil, err
+	}
+	// La cible est déduite côté serveur : l'auteur doit être un participant de l'échange,
+	// et la cible est forcément l'autre partie. On ne fait jamais confiance à un target_id
+	// fourni par le client.
+	switch r.AuthorID {
+	case requesterID:
+		r.TargetID = ownerID
+	case ownerID:
+		r.TargetID = requesterID
+	default:
+		return nil, fmt.Errorf("auteur non participant de l'échange %d: %w", r.ExchangeID, ErrUnauthorized)
 	}
 	if err := validateReview(status, r.Note); err != nil {
 		return nil, err
@@ -43,7 +54,6 @@ func createReviewHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		var body struct {
-			TargetID    int    `json:"target_id"`
 			Note        int    `json:"note"`
 			Commentaire string `json:"commentaire"`
 		}
@@ -54,7 +64,6 @@ func createReviewHandler(db *sql.DB) http.HandlerFunc {
 		rv := Review{
 			ExchangeID:  exchangeID,
 			AuthorID:    authorID,
-			TargetID:    body.TargetID,
 			Note:        body.Note,
 			Commentaire: body.Commentaire,
 		}

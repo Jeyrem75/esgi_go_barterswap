@@ -129,14 +129,26 @@ func TestPutSkillsHTTP(t *testing.T) {
 
 	u, _ := insertUser(ctx, db, User{Pseudo: "skillhttp"})
 
-	t.Run("400 niveau invalide", func(t *testing.T) {
-		body := `[{"nom":"Go","niveau":"dieu"}]`
+	doReq := func(userID int, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("PUT", "/api/users/"+strconv.Itoa(u.ID)+"/skills", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-User-ID", strconv.Itoa(userID))
 		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, req)
+		AuthMiddleware(mux).ServeHTTP(w, req)
+		return w
+	}
+
+	t.Run("400 niveau invalide", func(t *testing.T) {
+		w := doReq(u.ID, `[{"nom":"Go","niveau":"dieu"}]`)
 		if w.Code != http.StatusBadRequest {
 			t.Fatalf("got %d, want 400", w.Code)
+		}
+	})
+
+	t.Run("401 modification par autrui", func(t *testing.T) {
+		w := doReq(u.ID+9999, `[{"nom":"Go","niveau":"expert"}]`)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("got %d, want 401", w.Code)
 		}
 	})
 }
@@ -181,6 +193,13 @@ func TestGetAndUpdateUserHTTP(t *testing.T) {
 		w := doReq("PUT", "/api/users/"+strconv.Itoa(u.ID), `{"pseudo":"updated-http","ville":"Lyon"}`, u.ID)
 		if w.Code != http.StatusOK {
 			t.Fatalf("got %d, want 200 — %s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("PUT /api/users/{id} par autrui → 401", func(t *testing.T) {
+		w := doReq("PUT", "/api/users/"+strconv.Itoa(u.ID), `{"pseudo":"pirate"}`, u.ID+9999)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("got %d, want 401", w.Code)
 		}
 	})
 
