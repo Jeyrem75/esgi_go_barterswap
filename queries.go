@@ -54,12 +54,15 @@ func hasActiveExchangeForService(ctx context.Context, q Querier, serviceID int) 
 	return exists, err
 }
 
-// fetchExchangeStatus lit le statut courant d'un échange.
-func fetchExchangeStatus(ctx context.Context, q Querier, exchangeID int) (string, error) {
-	var status string
-	err := q.QueryRowContext(ctx, `SELECT status FROM exchanges WHERE id = $1`, exchangeID).Scan(&status)
+// fetchExchangeParties lit les deux participants et le statut d'un échange. Lecture
+// cross-domaine utilisée pour dériver la cible d'un avis ; l'écriture sur exchanges
+// reste réservée à exchanges.go.
+func fetchExchangeParties(ctx context.Context, q Querier, exchangeID int) (requesterID, ownerID int, status string, err error) {
+	err = q.QueryRowContext(ctx,
+		`SELECT requester_id, owner_id, status FROM exchanges WHERE id = $1`, exchangeID).
+		Scan(&requesterID, &ownerID, &status)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", fmt.Errorf("échange %d: %w", exchangeID, ErrNotFound)
+		return 0, 0, "", fmt.Errorf("échange %d: %w", exchangeID, ErrNotFound)
 	}
-	return status, err
+	return requesterID, ownerID, status, err
 }

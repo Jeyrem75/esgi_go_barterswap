@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// InitDB ouvre la connexion PostgreSQL via DATABASE_URL et vérifie qu'elle est joignable.
 func InitDB() *sql.DB {
 	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -34,6 +35,7 @@ func main() {
 	root.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+	root.HandleFunc("POST /api/users", createUserHandler(db))
 	root.Handle("/", AuthMiddleware(mux))
 
 	handler := LoggingMiddleware(
