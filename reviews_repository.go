@@ -3,21 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 )
-
-// selectExchangeParties lit les deux participants et le statut d'un échange. Sert à dériver
-// la cible d'un avis côté serveur, sans faire confiance à un target_id fourni par le client.
-func selectExchangeParties(ctx context.Context, db *sql.DB, exchangeID int) (requesterID, ownerID int, status string, err error) {
-	err = db.QueryRowContext(ctx,
-		`SELECT requester_id, owner_id, status FROM exchanges WHERE id = $1`, exchangeID).
-		Scan(&requesterID, &ownerID, &status)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, 0, "", fmt.Errorf("échange %d: %w", exchangeID, ErrNotFound)
-	}
-	return requesterID, ownerID, status, err
-}
 
 func insertReview(ctx context.Context, db *sql.DB, r Review) (*Review, error) {
 	row := db.QueryRowContext(ctx,

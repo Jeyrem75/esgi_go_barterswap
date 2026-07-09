@@ -20,7 +20,7 @@ func validateReview(status string, note int) error {
 }
 
 func createReview(ctx context.Context, db *sql.DB, r Review) (*Review, error) {
-	requesterID, ownerID, status, err := selectExchangeParties(ctx, db, r.ExchangeID)
+	requesterID, ownerID, status, err := fetchExchangeParties(ctx, db, r.ExchangeID)
 	if err != nil {
 		return nil, err
 	}
