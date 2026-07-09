@@ -17,7 +17,7 @@ func TestExchangeRepository(t *testing.T) {
 
 	var serviceID int
 	db.QueryRowContext(ctx,
-		`INSERT INTO services (provider_id, titre, categorie, duree_minutes, credits) VALUES ($1,'Cours','Cuisine',60,5) RETURNING id`,
+		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
 		owner.ID).Scan(&serviceID)
 
 	// insertExchangeRow — la ligne démarre en pending.
@@ -79,7 +79,7 @@ func TestHasActiveExchangeForService(t *testing.T) {
 
 	var serviceID int
 	db.QueryRowContext(ctx,
-		`INSERT INTO services (provider_id, titre, categorie, duree_minutes, credits) VALUES ($1,'Cours','Cuisine',60,5) RETURNING id`,
+		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
 		owner.ID).Scan(&serviceID)
 
 	// Aucun échange → false.

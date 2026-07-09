@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 )
 
@@ -147,7 +148,7 @@ func TestExchangeLifecycle(t *testing.T) {
 
 	var serviceID int
 	db.QueryRowContext(ctx,
-		`INSERT INTO services (provider_id, titre, categorie, duree_minutes, credits) VALUES ($1,'Cours','Cuisine',60,5) RETURNING id`,
+		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
 		owner.ID).Scan(&serviceID)
 
 	// Création : l'échange démarre en pending, sans mouvement de crédit.
@@ -185,7 +186,7 @@ func TestExchangeCancelRefund(t *testing.T) {
 
 	var serviceID int
 	db.QueryRowContext(ctx,
-		`INSERT INTO services (provider_id, titre, categorie, duree_minutes, credits) VALUES ($1,'Cours','Cuisine',60,5) RETURNING id`,
+		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
 		owner.ID).Scan(&serviceID)
 
 	e, err := createExchange(ctx, db, requester.ID, serviceID)
@@ -204,6 +205,59 @@ func TestExchangeCancelRefund(t *testing.T) {
 	}
 }
 
+// TestConcurrentAccept vérifie que deux acceptations simultanées du même échange
+// ne réussissent qu'une seule fois : le verrou FOR UPDATE de selectExchangeForUpdate
+// sérialise les deux transactions, la seconde voyant alors un statut déjà "accepted".
+// Exigé par la fiche dev-C (ticket C4 / DoD "test de concurrence").
+func TestConcurrentAccept(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+
+	owner, _ := insertUser(ctx, db, User{Pseudo: "owner-concurrent"})
+	requester, _ := insertUser(ctx, db, User{Pseudo: "requester-concurrent"})
+
+	var serviceID int
+	db.QueryRowContext(ctx,
+		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
+		owner.ID).Scan(&serviceID)
+
+	e, err := createExchange(ctx, db, requester.ID, serviceID)
+	if err != nil {
+		t.Fatalf("createExchange: %v", err)
+	}
+
+	const n = 2
+	var wg sync.WaitGroup
+	errs := make(chan error, n)
+	start := make(chan struct{})
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start // relâche les goroutines en même temps
+			errs <- acceptExchange(ctx, db, e.ID, owner.ID)
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	var success int
+	for err := range errs {
+		if err == nil {
+			success++
+		}
+	}
+	if success != 1 {
+		t.Errorf("accepts réussis = %d, want 1 (le FOR UPDATE doit sérialiser)", success)
+	}
+
+	// Le demandeur ne doit avoir été débité qu'une seule fois (5 crédits sur 10).
+	if bal, _ := fetchUserBalance(ctx, db, requester.ID); bal != 5 {
+		t.Errorf("solde demandeur = %d, want 5 (un seul débit)", bal)
+	}
+}
+
 func TestExchangeReject(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()
@@ -213,7 +267,7 @@ func TestExchangeReject(t *testing.T) {
 
 	var serviceID int
 	db.QueryRowContext(ctx,
-		`INSERT INTO services (provider_id, titre, categorie, duree_minutes, credits) VALUES ($1,'Cours','Cuisine',60,5) RETURNING id`,
+		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
 		owner.ID).Scan(&serviceID)
 
 	e, err := createExchange(ctx, db, requester.ID, serviceID)

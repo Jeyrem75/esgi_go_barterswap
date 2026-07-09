@@ -18,7 +18,7 @@ func TestRecordCreditTransaction(t *testing.T) {
 	// Un échange est requis (clé étrangère exchange_id sur credit_transactions).
 	var serviceID int
 	db.QueryRowContext(ctx,
-		`INSERT INTO services (provider_id, titre, categorie, duree_minutes, credits) VALUES ($1,'Cours','Cuisine',60,5) RETURNING id`,
+		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
 		owner.ID).Scan(&serviceID)
 	var exchangeID int
 	db.QueryRowContext(ctx,
