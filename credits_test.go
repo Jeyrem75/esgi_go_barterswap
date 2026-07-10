@@ -6,8 +6,7 @@ import (
 	"testing"
 )
 
-// TestRecordCreditTransaction vérifie les mouvements de crédits atomiques :
-// débit, crédit, et garde contre les soldes négatifs. Nécessite DATABASE_URL.
+
 func TestRecordCreditTransaction(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()
