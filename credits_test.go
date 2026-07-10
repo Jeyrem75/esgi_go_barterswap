@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-
 func TestRecordCreditTransaction(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()

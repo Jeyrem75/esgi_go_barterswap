@@ -16,10 +16,13 @@ type Querier interface {
 }
 
 // fetchService lit une annonce de service complète depuis une connexion ou une transaction.
+// COALESCE sur description/ville : ces colonnes sont nullables en base (migrations/001_init.sql),
+// et Service.Description/Ville sont des string Go brutes — sans ça, un service inséré sans ces
+// champs fait planter le Scan pour tout appelant (getServiceHandler, createExchange, ...).
 func fetchService(ctx context.Context, q Querier, id int) (*Service, error) {
 	var s Service
 	err := q.QueryRowContext(ctx, `
-        SELECT id, provider_id, titre, description, categorie, duree_minutes, credits, ville, actif, created_at
+        SELECT id, provider_id, titre, COALESCE(description, ''), categorie, duree_minutes, credits, COALESCE(ville, ''), actif, created_at
         FROM services WHERE id = $1`, id).Scan(
 		&s.ID, &s.ProviderID, &s.Titre, &s.Description, &s.Categorie,
 		&s.DureeMinutes, &s.Credits, &s.Ville, &s.Actif, &s.CreatedAt)

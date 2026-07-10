@@ -11,7 +11,6 @@ import (
 	"testing"
 )
 
-
 func TestExchangeRepository(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()
@@ -24,7 +23,6 @@ func TestExchangeRepository(t *testing.T) {
 		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
 		owner.ID).Scan(&serviceID)
 
-	
 	e, err := insertExchangeRow(ctx, db, serviceID, requester.ID, owner.ID)
 	if err != nil {
 		t.Fatalf("insertExchangeRow: %v", err)
@@ -33,7 +31,6 @@ func TestExchangeRepository(t *testing.T) {
 		t.Fatalf("échange inattendu: %+v", e)
 	}
 
-	
 	got, err := selectExchange(ctx, db, e.ID)
 	if err != nil {
 		t.Fatalf("selectExchange: %v", err)
@@ -42,12 +39,10 @@ func TestExchangeRepository(t *testing.T) {
 		t.Errorf("participants incohérents: %+v", got)
 	}
 
-	
 	if _, err := selectExchange(ctx, db, 999999); !errors.Is(err, ErrNotFound) {
 		t.Errorf("attendu ErrNotFound, got %v", err)
 	}
 
-	
 	tx, _ := db.BeginTx(ctx, nil)
 	if err := updateExchangeStatus(ctx, tx, e.ID, "accepted"); err != nil {
 		t.Fatalf("updateExchangeStatus: %v", err)
@@ -58,7 +53,6 @@ func TestExchangeRepository(t *testing.T) {
 		t.Errorf("status = %q, want accepted", got.Status)
 	}
 
-	
 	list, err := selectExchangesForUser(ctx, db, requester.ID, "")
 	if err != nil {
 		t.Fatalf("selectExchangesForUser: %v", err)
@@ -67,7 +61,6 @@ func TestExchangeRepository(t *testing.T) {
 		t.Errorf("échange %d absent de la liste du demandeur", e.ID)
 	}
 
-	
 	pendings, _ := selectExchangesForUser(ctx, db, requester.ID, "pending")
 	if containsExchange(pendings, e.ID) {
 		t.Errorf("échange accepted %d ne devrait pas apparaître dans le filtre pending", e.ID)
@@ -86,7 +79,6 @@ func TestHasActiveExchangeForService(t *testing.T) {
 		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
 		owner.ID).Scan(&serviceID)
 
-	
 	active, err := hasActiveExchangeForService(ctx, db, serviceID)
 	if err != nil {
 		t.Fatalf("hasActiveExchangeForService: %v", err)
@@ -95,7 +87,6 @@ func TestHasActiveExchangeForService(t *testing.T) {
 		t.Error("attendu false sans échange")
 	}
 
-	
 	if _, err := insertExchangeRow(ctx, db, serviceID, requester.ID, owner.ID); err != nil {
 		t.Fatalf("insertExchangeRow: %v", err)
 	}
@@ -104,7 +95,6 @@ func TestHasActiveExchangeForService(t *testing.T) {
 		t.Error("attendu true avec un échange pending")
 	}
 }
-
 
 func TestExchangeLifecycleHTTP(t *testing.T) {
 	db := testDB(t)
