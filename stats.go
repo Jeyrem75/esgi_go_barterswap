@@ -10,6 +10,9 @@ import (
 )
 
 func getUserStats(ctx context.Context, db *sql.DB, userID int) (*UserStats, error) {
+	if _, err := selectUser(ctx, db, userID); err != nil {
+		return nil, err
+	}
 	s := UserStats{UserID: userID}
 	err := db.QueryRowContext(ctx, `
         SELECT
