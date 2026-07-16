@@ -21,8 +21,8 @@ func getUserStats(ctx context.Context, db *sql.DB, userID int) (*UserStats, erro
             (SELECT credit_balance FROM users WHERE id = $1),
             COALESCE((SELECT AVG(note) FROM reviews WHERE target_id = $1), 0),
             (SELECT COUNT(*) FROM reviews WHERE target_id = $1),
-            COALESCE((SELECT SUM(montant) FROM credit_transactions WHERE user_id = $1 AND montant > 0), 0),
-            COALESCE((SELECT -SUM(montant) FROM credit_transactions WHERE user_id = $1 AND montant < 0), 0)
+            COALESCE((SELECT SUM(montant) FROM credit_transactions WHERE user_id = $1 AND type = 'earn'), 0),
+            COALESCE((SELECT -SUM(montant) FROM credit_transactions WHERE user_id = $1 AND type = 'spend'), 0)
     `, userID).Scan(&s.ServicesActifs, &s.EchangesCompletes, &s.CreditBalance,
 		&s.NoteMoyenne, &s.NbAvis, &s.TotalGagne, &s.TotalDepense)
 	return &s, err

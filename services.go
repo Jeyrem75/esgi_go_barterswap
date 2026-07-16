@@ -35,7 +35,19 @@ func createService(ctx context.Context, db *sql.DB, s Service) (*Service, error)
 }
 
 func updateService(ctx context.Context, db *sql.DB, s Service) (*Service, error) {
-	if err := validateService(s, true); err != nil {
+	// Ownership vérifié avant toute validation, pour ne jamais renseigner un tiers non autorisé.
+	existing, err := fetchService(ctx, db, s.ID)
+	if err != nil {
+		return nil, err
+	}
+	if existing.ProviderID != s.ProviderID {
+		return nil, fmt.Errorf("service %d: %w", s.ID, ErrNotFound)
+	}
+	has, err := userHasSkill(ctx, db, s.ProviderID, s.Categorie)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateService(s, has); err != nil {
 		return nil, err
 	}
 	n, err := updateServiceRow(ctx, db, s)

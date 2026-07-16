@@ -258,6 +258,58 @@ func TestConcurrentAccept(t *testing.T) {
 	}
 }
 
+// TestConcurrentCreateExchange vérifie que deux demandes simultanées sur le même service n'en font passer qu'une (409 sur l'autre).
+func TestConcurrentCreateExchange(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+
+	owner, _ := insertUser(ctx, db, User{Pseudo: "owner-create-race"})
+	r1, _ := insertUser(ctx, db, User{Pseudo: "requester-race-1"})
+	r2, _ := insertUser(ctx, db, User{Pseudo: "requester-race-2"})
+
+	var serviceID int
+	db.QueryRowContext(ctx,
+		`INSERT INTO services (provider_id, titre, description, categorie, duree_minutes, credits, ville) VALUES ($1,'Cours','','Cuisine',60,5,'Paris') RETURNING id`,
+		owner.ID).Scan(&serviceID)
+
+	requesters := []int{r1.ID, r2.ID}
+	const n = 2
+	var wg sync.WaitGroup
+	errs := make(chan error, n)
+	start := make(chan struct{})
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		reqID := requesters[i]
+		go func() {
+			defer wg.Done()
+			<-start // relâche les goroutines en même temps
+			_, err := createExchange(ctx, db, reqID, serviceID)
+			errs <- err
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	var success, conflicts int
+	for err := range errs {
+		switch {
+		case err == nil:
+			success++
+		case errors.Is(err, ErrConflict):
+			conflicts++
+		default:
+			t.Errorf("erreur inattendue: %v", err)
+		}
+	}
+	if success != 1 {
+		t.Errorf("créations réussies = %d, want 1 (le FOR UPDATE doit sérialiser)", success)
+	}
+	if conflicts != 1 {
+		t.Errorf("conflits = %d, want 1", conflicts)
+	}
+}
+
 func TestExchangeReject(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()

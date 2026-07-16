@@ -47,6 +47,9 @@ func replaceUserSkills(ctx context.Context, db *sql.DB, userID int, skills []Ski
 	if err := validateSkills(skills); err != nil {
 		return err
 	}
+	if _, err := selectUser(ctx, db, userID); err != nil {
+		return err
+	}
 	return replaceSkillsRows(ctx, db, userID, skills)
 }
 

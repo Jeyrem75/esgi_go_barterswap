@@ -9,13 +9,25 @@ import (
 
 func insertUser(ctx context.Context, db *sql.DB, u User) (*User, error) {
 	const welcomeCredits = 10
-	row := db.QueryRowContext(ctx,
-		`INSERT INTO users (pseudo, bio, ville, credit_balance)
-         VALUES ($1, $2, $3, $4)
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	row := tx.QueryRowContext(ctx,
+		`INSERT INTO users (pseudo, bio, ville)
+         VALUES ($1, $2, $3)
          RETURNING id, created_at`,
-		u.Pseudo, u.Bio, u.Ville, welcomeCredits)
+		u.Pseudo, u.Bio, u.Ville)
 	if err := row.Scan(&u.ID, &u.CreatedAt); err != nil {
 		return nil, fmt.Errorf("insertion user: %w", err)
+	}
+	if err := recordWelcomeCredit(ctx, tx, u.ID, welcomeCredits); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
 	}
 	u.CreditBalance = welcomeCredits
 	return &u, nil

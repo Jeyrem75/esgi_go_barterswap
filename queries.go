@@ -32,6 +32,20 @@ func fetchService(ctx context.Context, q Querier, id int) (*Service, error) {
 	return &s, err
 }
 
+// fetchServiceForUpdate verrouille le service (FOR UPDATE) pour sérialiser deux créations d'échange concurrentes.
+func fetchServiceForUpdate(ctx context.Context, q Querier, id int) (*Service, error) {
+	var s Service
+	err := q.QueryRowContext(ctx, `
+        SELECT id, provider_id, titre, COALESCE(description, ''), categorie, duree_minutes, credits, COALESCE(ville, ''), actif, created_at
+        FROM services WHERE id = $1 FOR UPDATE`, id).Scan(
+		&s.ID, &s.ProviderID, &s.Titre, &s.Description, &s.Categorie,
+		&s.DureeMinutes, &s.Credits, &s.Ville, &s.Actif, &s.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("service %d: %w", id, ErrNotFound)
+	}
+	return &s, err
+}
+
 // fetchUserBalance lit le solde de crédits d'un utilisateur.
 func fetchUserBalance(ctx context.Context, q Querier, userID int) (int, error) {
 	var balance int

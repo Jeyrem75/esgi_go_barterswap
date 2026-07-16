@@ -66,3 +66,33 @@ func TestRecordCreditTransaction(t *testing.T) {
 		}
 	})
 }
+
+// TestWelcomeCreditIsJournaled vérifie que le bonus de bienvenue passe par le journal de transactions.
+func TestWelcomeCreditIsJournaled(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+
+	u, err := insertUser(ctx, db, User{Pseudo: "welcome-journal"})
+	if err != nil {
+		t.Fatalf("insertUser: %v", err)
+	}
+
+	var count, montant int
+	var txType string
+	err = db.QueryRowContext(ctx,
+		`SELECT COUNT(*), COALESCE(SUM(montant), 0), MAX(type)
+         FROM credit_transactions WHERE user_id = $1 AND exchange_id IS NULL`,
+		u.ID).Scan(&count, &montant, &txType)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("nb transactions bonus de bienvenue = %d, want 1", count)
+	}
+	if montant != 10 {
+		t.Errorf("montant = %d, want 10", montant)
+	}
+	if txType != "earn" {
+		t.Errorf("type = %q, want earn", txType)
+	}
+}

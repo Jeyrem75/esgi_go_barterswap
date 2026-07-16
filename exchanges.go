@@ -75,7 +75,7 @@ func createExchange(ctx context.Context, db *sql.DB, requesterID, serviceID int)
 	}
 	defer tx.Rollback()
 
-	service, err := fetchService(ctx, tx, serviceID)
+	service, err := fetchServiceForUpdate(ctx, tx, serviceID)
 	if err != nil {
 		return nil, err
 	}
